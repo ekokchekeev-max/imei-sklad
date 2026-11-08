@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Имей Склад</title>
+<meta name="theme-color" content="#b9ec1f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Имей Склад">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<nav class="nav" role="tablist" aria-label="Разделы">
+  <div class="brand"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14M9 5v14M13 5v14M17 5v14M20 5v14" stroke-width="1.6"/></svg></i>Имей Склад</div>
+  <button class="tab t-home" role="tab" data-v="home" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V11M10 20V5M16 20v-7M21 20H3"/></svg>Сводка</button>
+  <button class="tab t-stock" role="tab" data-v="stock" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg>Склад</button>
+  <button class="tab t-scan" role="tab" data-v="scan" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>Сканер</button>
+  <button class="tab t-sales" role="tab" data-v="sales" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4h8l9 9-8 8-9-9z"/><circle cx="7.5" cy="8.5" r="1"/></svg>Продажи</button>
+  <button class="tab t-stats" role="tab" data-v="stats" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Аналитика</button>
+  <button class="tab t-inst only-desktop" role="tab" data-v="inst" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Рассрочки</button>
+  <div class="spacer"></div>
+  <button class="tab only-desktop" role="tab" data-v="settings" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>Настройки</button>
+</nav>
+
+<div class="main">
+  <div class="wrap">
+    <header class="top">
+      <div class="brandmark"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14M9 5v14M13 5v14M17 5v14M20 5v14"/></svg></i><span id="top-title">Имей Склад</span></div>
+      <h1 id="page-title" class="only-desktop-title" hidden></h1>
+      <div class="top-actions">
+        <button id="btn-install-top" class="btn small" type="button" hidden>Установить</button>
+        <button id="sync-chip" class="chip" type="button" title="Состояние синхронизации">…</button>
+        <button id="btn-gear" class="iconbtn" type="button" aria-label="Настройки"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></button>
+      </div>
+    </header>
+
+    <section id="v-home" class="view">
+      <div id="install-banner" class="card instbanner" hidden></div>
+      <div class="chips" id="hperiod" role="group" aria-label="Период">
+        <button class="seg" type="button" data-p="1" aria-pressed="false">Сегодня</button>
+        <button class="seg" type="button" data-p="7" aria-pressed="false">7 дней</button>
+        <button class="seg" type="button" data-p="month" aria-pressed="true">Этот месяц</button>
+        <button class="seg" type="button" data-p="all" aria-pressed="false">Всё время</button>
+      </div>
+      <div id="hero" class="hero"></div>
+      <dl id="hkpi" class="kpi"></dl>
+      <div class="home-grid">
+        <div><h2 style="margin-bottom:8px">Требует внимания</h2><div id="attn" class="card attn"></div></div>
+        <div><h2 style="margin-bottom:8px">Лучшие модели по прибыли</h2><div class="scroll"><table id="h-top"></table></div></div>
+      </div>
+      <div class="rowhead"><h2>Последние продажи</h2><button class="linkish" type="button" data-go="sales">Все продажи</button></div>
+      <ul id="h-recent" class="list"></ul>
+    </section>
+
+    <section id="v-scan" class="view" hidden>
+      <div class="scan-grid">
+        <div class="col">
+          <div class="card cam-card" style="display:flex;flex-direction:column;gap:12px">
+            <div id="cam" class="cam" hidden>
+              <video id="cam-video" playsinline muted></video>
+              <div class="reticle"></div>
+              <p id="cam-hint" class="cam-hint">Наведите на штрихкод IMEI</p>
+              <div class="cam-bar">
+                <button id="cam-torch" class="btn small" type="button" hidden>Фонарик</button>
+                <button id="cam-ocr" class="btn small" type="button">Прочитать цифры</button>
+                <button id="cam-close" class="btn small" type="button">Закрыть</button>
+              </div>
+            </div>
+            <div class="cam-actions">
+              <button id="cam-open" class="btn big" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>Сканировать камерой</button>
+              <button id="photo-btn" class="btn ghost" type="button">Загрузить фото с IMEI</button>
+              <input id="photo" type="file" accept="image/*" capture="environment" hidden>
+            </div>
+          </div>
+          <form id="find-form" class="manual card" autocomplete="off">
+            <label for="q-imei"><span>Ввести IMEI или считать USB-сканером</span></label>
+            <div class="line"><input id="q-imei" class="mono" inputmode="numeric" placeholder="15 цифр или последние 5"><button class="btn" type="submit">Найти</button></div>
+          </form>
+        </div>
+        <div class="col">
+          <div id="scan-status" class="status" role="status" aria-live="polite"></div>
+          <div id="scan-result" class="result"></div>
+          <p id="mini" class="summary"></p>
+        </div>
+        <div class="wide col">
+          <h2>Последние операции</h2>
+          <ul id="recent" class="list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="v-stock" class="view" hidden>
+      <div class="toolbar">
+        <input id="q-stock" type="search" placeholder="Поиск: модель, IMEI, поставщик" aria-label="Поиск по складу">
+        <button id="btn-add" class="btn" type="button">Новый приход</button>
+      </div>
+      <p id="stock-sum" class="summary"></p>
+      <ul id="stock-list" class="list"></ul>
+    </section>
+
+    <section id="v-sales" class="view" hidden>
+      <div class="toolbar"><select id="sales-month" aria-label="Месяц"></select></div>
+      <p id="sales-sum" class="summary"></p>
+      <ul id="sales-list" class="list"></ul>
+    </section>
+
+    <section id="v-inst" class="view" hidden>
+      <p id="inst-sum" class="summary"></p>
+      <div id="inst-list" class="view" style="padding:0"></div>
+    </section>
+
+    <section id="v-stats" class="view" hidden>
+      <div class="chips" id="period" role="group" aria-label="Период">
+        <button class="seg" type="button" data-p="7" aria-pressed="false">7 дней</button>
+        <button class="seg" type="button" data-p="30" aria-pressed="true">30 дней</button>
+        <button class="seg" type="button" data-p="90" aria-pressed="false">90 дней</button>
+        <button class="seg" type="button" data-p="365" aria-pressed="false">Год</button>
+        <button class="seg" type="button" data-p="all" aria-pressed="false">Всё время</button>
+      </div>
+      <dl id="kpi" class="kpi"></dl>
+      <p id="stat-sum" class="summary"></p>
+      <div class="card">
+        <h3 style="font-size:16px">Продажи по времени</h3>
+        <div class="legend"><span><i style="background:var(--lime)"></i>выручка</span><span><i style="background:var(--accent)"></i>прибыль</span></div>
+        <div id="bars"></div>
+      </div>
+      <div class="grid2">
+        <div><h2 style="margin-bottom:8px">Лучшие модели по прибыли</h2><div class="scroll"><table id="t-top"></table></div></div>
+        <div class="col">
+          <div><h2 style="margin-bottom:8px">Способ оплаты</h2><div class="scroll"><table id="t-pay"></table></div></div>
+          <div><h2 style="margin-bottom:8px">Продавцы</h2><div class="scroll"><table id="t-sell"></table></div></div>
+        </div>
+      </div>
+      <h2>Залежавшийся товар (больше 45 дней)</h2>
+      <ul id="stale" class="list"></ul>
+      <h2>Цены по моделям (за всё время)</h2>
+      <div class="scroll"><table id="t-models"></table></div>
+      <div class="card" id="chart-card" hidden>
+        <h3 id="chart-title" style="font-size:16px"></h3>
+        <div class="legend"><span><i style="background:var(--accent);border-radius:50%"></i>закупка</span><span><i style="border:1.6px solid var(--ink);background:var(--surface);border-radius:50%"></i>продажа</span></div>
+        <div id="chart-box"></div>
+      </div>
+      <h2>Поставщики</h2>
+      <div class="scroll"><table id="t-sup"></table></div>
+    </section>
+
+    <section id="v-settings" class="view" hidden>
+      <div class="card setcard">
+        <h3>Этот телефон или компьютер</h3>
+        <label><span class="sub">Имя продавца (попадёт в продажи)</span><input id="set-seller" placeholder="Например, Нурсултан"></label>
+        <label><span class="sub">Оформление</span><select id="set-theme"><option value="auto">Как в системе</option><option value="light">Светлое</option><option value="dark">Тёмное</option></select></label>
+      </div>
+      <div class="card setcard">
+        <h3>Синхронизация между устройствами</h3>
+        <p id="set-status" class="hint"></p>
+        <label><span class="sub">Адрес базы (Project URL в Supabase)</span><input id="set-url" placeholder="https://xxxx.supabase.co" autocomplete="off"></label>
+        <label><span class="sub">Ключ (anon public key)</span><input id="set-key" class="mono" autocomplete="off" placeholder="eyJ…"></label>
+        <label><span class="sub">Код магазина (общий для всех устройств)</span><input id="set-shop" class="mono" autocomplete="off"></label>
+        <div class="actions"><button id="set-gen" class="btn ghost small" type="button">Придумать код</button><button id="set-save" class="btn small" type="button">Сохранить и подключить</button><button id="set-off" class="btn ghost small" type="button">Отключить</button></div>
+        <div id="invite-box" hidden>
+          <p class="hint">Откройте эту ссылку на втором устройстве, и настройки подтянутся сами:</p>
+          <div id="invite" class="mono-box"></div>
+          <div class="actions" style="margin-top:8px"><button id="invite-copy" class="btn ghost small" type="button">Скопировать ссылку</button></div>
+        </div>
+      </div>
+      <div class="card setcard">
+        <h3>Установка приложения</h3>
+        <p id="install-hint" class="hint"></p>
+        <div class="actions"><button id="btn-install" class="btn small" type="button" hidden>Установить приложение</button></div>
+      </div>
+      <div class="card setcard">
+        <h3>Данные</h3>
+        <div class="actions"><button id="btn-export" class="btn ghost small" type="button">Экспорт в CSV</button></div>
+        <label><span class="sub">Импорт из таблицы (CSV: Дата, Телефон, Цвет, IMEI, Поставщик, Цена)</span><input id="imp-file" type="file" accept=".csv,.txt,text/csv"></label>
+        <div id="imp-box"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div id="ov" class="ov" hidden><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"><div id="sheet-body"></div></div></div>
+<div id="toast" class="toast" role="status" hidden></div>
+<datalist id="dl-models"></datalist>
+<datalist id="dl-sup"></datalist>
+
+<script src="core.js"></script>
+<script src="store.js"></script>
+<script src="camera.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
