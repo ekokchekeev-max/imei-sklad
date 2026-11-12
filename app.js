@@ -5,8 +5,9 @@ const C = Core;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const PAY = { cash: 'Наличные', bank: 'Перевод', inst: 'Рассрочка' };
-const TITLES = { home: 'Сводка', scan: 'Сканер IMEI', stock: 'Склад', sales: 'Продажи', inst: 'Рассрочки', stats: 'Аналитика', settings: 'Настройки' };
+const PAY = { cash: 'Наличные', bank: 'Перевод', inst: 'Рассрочка', wait: 'Ждём перевод' };
+const owed = p => !!p.sale && (p.sale.pay === 'inst' || p.sale.pay === 'wait');
+const TITLES = { home: 'Сводка', scan: 'Сканер IMEI', stock: 'Склад', sales: 'Продажи', inst: 'Нам должны', stats: 'Аналитика', settings: 'Настройки' };
 
 let view = 'home', hperiod = 'month', scanState = null, chartKey = null, period = '30', importPending = null, torchOn = false, installEvt = null;
 const phones = () => Store.visible();
@@ -87,25 +88,25 @@ function renderSales() {
   $('#sales-list').innerHTML = list.length ? HEAD_SALES + list.map(item).join('') : '<li class="empty">Продаж за этот период нет.</li>';
 }
 function renderInst() {
-  const all = sold().filter(p => p.sale.pay === 'inst');
+  const all = sold().filter(owed);
   const t = C.today(), soon = C.addDays(t, 7);
   const open = all.filter(p => C.remaining(p) > 0).sort((a, b) => a.sale.payments.find(x => !x.paid).d < b.sale.payments.find(x => !x.paid).d ? -1 : 1);
   const closed = all.filter(p => C.remaining(p) === 0).sort((a, b) => a.sale.date < b.sale.date ? 1 : -1);
   const debt = C.sum(open.map(C.remaining));
   const late = C.sum(open.map(p => C.sum(p.sale.payments.filter(x => !x.paid && x.d < t).map(x => x.a))));
-  $('#inst-sum').innerHTML = 'Долг <b>' + C.fmt(debt) + '</b> · просрочено <b class="' + (late ? 'bad' : '') + '">' + C.fmt(late) + '</b> · договоров в работе <b>' + open.length + '</b>';
+  $('#inst-sum').innerHTML = 'Нам должны <b>' + C.fmt(debt) + '</b> · просрочено <b class="' + (late ? 'bad' : '') + '">' + C.fmt(late) + '</b> · записей <b>' + open.length + '</b>';
   const card = p => {
     const rem = C.remaining(p);
     const pays = p.sale.payments.map((x, i) => {
       const c = x.paid ? 'paid' : x.d < t ? 'late' : x.d <= soon ? 'soon' : '';
       return '<button class="pay ' + c + '" type="button" data-pay="' + esc(p.id) + ':' + i + '" aria-pressed="' + (x.paid ? 'true' : 'false') + '" title="' + (x.paid ? 'Отметить как неоплаченный' : 'Отметить оплату') + '">' + C.dmy(x.d) + ' · ' + C.fmt(x.a) + '</button>';
     }).join('');
-    return '<article class="card inst"><div class="head"><div><b>' + esc(p.sale.buyer || 'Без имени') + '</b><div class="sub">' + esc(p.sale.contact || '') + '</div></div><div class="num" style="text-align:right"><b>' + (rem ? 'Остаток ' + C.fmt(rem) : 'Закрыта') + '</b></div></div>' +
-      '<div class="sub">' + esc(p.model) + ' · продано ' + C.dmy(p.sale.date) + ' за ' + C.fmt(p.sale.price) + ' · взнос ' + C.fmt(p.sale.first || 0) + '</div><div class="pays">' + pays + '</div></article>';
+    return '<article class="card inst"><div class="head"><div><b>' + esc(p.sale.via ? 'Через ' + p.sale.via : (p.sale.buyer || 'Без имени')) + '</b><div class="sub">' + esc([p.sale.via && p.sale.buyer ? 'покупатель ' + p.sale.buyer : '', p.sale.contact].filter(Boolean).join(' · ')) + '</div></div><div class="num" style="text-align:right"><b>' + (rem ? (p.sale.pay === 'wait' ? 'Ждём ' : 'Остаток ') + C.fmt(rem) : 'Закрыта') + '</b></div></div>' +
+      '<div class="sub">' + esc(p.model) + ' · продано ' + C.dmy(p.sale.date) + ' за ' + C.fmt(p.sale.price) + (p.sale.pay === 'inst' ? ' · взнос ' + C.fmt(p.sale.first || 0) : '') + '</div><div class="pays">' + pays + '</div>' + (rem ? '<div class="sub">Когда деньги придут, нажмите на платёж: он станет «получено».</div>' : '') + '</article>';
   };
   let h = open.map(card).join('');
   if (closed.length) h += '<h2 style="margin-top:6px">Закрытые</h2>' + closed.map(card).join('');
-  $('#inst-list').innerHTML = h || '<p class="empty">Рассрочек нет. При продаже выберите способ оплаты «Рассрочка», и график платежей появится здесь.</p>';
+  $('#inst-list').innerHTML = h || '<p class="empty">Здесь будут деньги, которые нам должны: переводы через ИП, которые ещё в пути, и рассрочки. При продаже выберите «Ждём перевод (через ИП)» или «Рассрочка».</p>';
 }
 
 /* ---------- аналитика ---------- */
@@ -143,7 +144,7 @@ function renderStats() {
     '<div><dt>Прибыль</dt><dd>' + C.fmt(S.profit) + '</dd><dd class="s2">наценка ' + Math.round(S.margin) + '% к закупке</dd></div>' +
     '<div><dt>Средний чек</dt><dd>' + C.fmt(S.avgCheck) + '</dd><dd class="s2">на один телефон</dd></div>' +
     '<div><dt>До продажи</dt><dd>' + (S.count ? Math.round(S.avgDays) : '—') + ' дн.</dd><dd class="s2">в среднем на складе</dd></div>';
-  const stk = stock(), debt = C.sum(sold().filter(p => p.sale.pay === 'inst').map(C.remaining));
+  const stk = stock(), debt = C.sum(sold().filter(owed).map(C.remaining));
   $('#stat-sum').innerHTML = 'Сейчас на складе <b>' + stk.length + ' шт.</b> на ' + C.fmt(C.sum(stk.map(p => p.cost))) + ' · долг по рассрочкам <b>' + C.fmt(debt) + '</b>';
   barChart($('#bars'), C.buckets(inP, from, to));
   table($('#t-top'), ['Модель', 'Шт', 'Выручка', 'Прибыль', 'Наценка'], C.groupSales(inP, C.nameOf).slice(0, 8).map(r => [esc(r.key), r.count, C.fmt(r.revenue), C.fmt(r.profit), Math.round(r.margin) + '%']), 'За период продаж нет.');
@@ -217,7 +218,7 @@ function renderHome() {
     '<div><dt>На складе</dt><dd>' + stk.length + ' шт.</dd><dd class="s2">в товаре ' + C.fmt(C.sum(stk.map(p => p.cost))) + '</dd></div>' +
     '<div><dt>Продаётся в среднем за</dt><dd>' + (S.count ? Math.round(S.avgDays) + ' дн.' : '—') + '</dd><dd class="s2">от прихода до продажи</dd></div>';
   const stale = stk.filter(p => C.daysBetween(p.date, t) > 45);
-  const open = all.filter(p => p.sale.pay === 'inst' && C.remaining(p) > 0);
+  const open = all.filter(p => owed(p) && C.remaining(p) > 0);
   const lateAmt = C.sum(open.map(p => C.sum(p.sale.payments.filter(x => !x.paid && x.d < t).map(x => x.a))));
   const lateN = open.filter(p => p.sale.payments.some(x => !x.paid && x.d < t)).length;
   const soon = C.addDays(t, 7);
@@ -268,8 +269,14 @@ function fillSettings() {
   $('#set-url').value = c.url || ''; $('#set-key').value = c.key || ''; $('#set-shop').value = c.shop || '';
   let th = 'auto'; try { th = localStorage.getItem('imeisklad.theme') || 'auto'; } catch (e) {}
   $('#set-theme').value = th;
+  $('#set-mode').value = getMode();
+  const has = !!pinGet();
+  $('#pin-status').textContent = has ? 'PIN-код включён на этом устройстве.' : 'PIN-код не задан: любой, у кого в руках устройство, откроет склад.';
+  $('#pin-set').textContent = has ? 'Сменить PIN' : 'Задать PIN'; $('#pin-off').hidden = !has;
   renderSyncChip();
 }
+const getMode = () => { try { return localStorage.getItem('imeisklad.mode') || 'simple'; } catch (e) { return 'simple'; } };
+const applyMode = m => { document.body.dataset.mode = m; };
 function applyTheme(th) {
   if (th === 'light' || th === 'dark') document.documentElement.setAttribute('data-theme', th); else document.documentElement.removeAttribute('data-theme');
   const dark = th === 'dark' || (th !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -308,6 +315,68 @@ function setView(v) {
   render(); window.scrollTo(0, 0);
 }
 
+
+/* ---------- фото (только на этом устройстве) ---------- */
+const Photos = (() => {
+  let dbp;
+  const db = () => dbp || (dbp = new Promise((res, rej) => { try { const r = indexedDB.open('imeisklad-photos', 1); r.onupgradeneeded = () => r.result.createObjectStore('p'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch (e) { rej(e); } }));
+  const tx = async (mode, fn) => { const d = await db(); return new Promise((res, rej) => { const t = d.transaction('p', mode); const out = fn(t.objectStore('p')); t.oncomplete = () => res(out && out.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); }); };
+  async function shrink(file) {
+    const bmp = await createImageBitmap(file), k = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('blob')), 'image/jpeg', 0.8));
+  }
+  return {
+    async get(id) { try { return (await tx('readonly', s => s.get(id))) || []; } catch (e) { return []; } },
+    async add(id, files) { const cur = await this.get(id), add = []; for (const f of files) add.push(await shrink(f)); await tx('readwrite', s => s.put(cur.concat(add), id)); return cur.length + add.length; },
+    async del(id) { try { await tx('readwrite', s => s.delete(id)); } catch (e) {} }
+  };
+})();
+
+
+/* ---------- PIN-код ---------- */
+const PIN_K = 'imeisklad.pin.v1', PIN_SKIP = 'imeisklad.pinskip';
+const pinGet = () => { try { return JSON.parse(localStorage.getItem(PIN_K) || 'null'); } catch (e) { return null; } };
+const hex = a => Array.from(a, x => x.toString(16).padStart(2, '0')).join('');
+const sha = async (salt, pin) => hex(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt + ':' + pin))));
+async function pinSave(pin) { const salt = hex(crypto.getRandomValues(new Uint8Array(8))); localStorage.setItem(PIN_K, JSON.stringify({ s: salt, h: await sha(salt, pin) })); }
+async function pinCheck(pin) { const r = pinGet(); return !!r && (await sha(r.s, pin)) === r.h; }
+let lockMode = 'enter', lockFirst = '', lockFromSettings = false, fails = 0, blockedUntil = 0, hiddenAt = 0;
+function showLock(mode, fromSettings) {
+  lockMode = mode; lockFirst = ''; lockFromSettings = !!fromSettings;
+  closeCamera(); if (!ov.hidden) closeSheet();
+  $('#lock').hidden = false; document.body.classList.add('locked');
+  $('#lock-title').textContent = mode === 'enter' ? 'Введите PIN-код' : 'Придумайте PIN-код';
+  $('#lock-sub').textContent = mode === 'enter' ? 'Имей Склад закрыт' : 'От 4 до 6 цифр. Он закрывает склад от посторонних на этом устройстве.';
+  $('#lock-skip').hidden = mode === 'enter'; $('#lock-skip').textContent = fromSettings ? 'Отмена' : 'Пропустить';
+  $('#lock-pin').value = ''; $('#lock-err').textContent = '';
+  setTimeout(() => { try { $('#lock-pin').focus(); } catch (e) {} }, 60);
+}
+function hideLock() { $('#lock').hidden = true; document.body.classList.remove('locked'); }
+$('#lock-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const pin = $('#lock-pin').value.replace(/\D/g, ''), err = $('#lock-err');
+  if (pin.length < 4) { err.textContent = 'Минимум 4 цифры.'; return; }
+  if (!(window.crypto && crypto.subtle)) { err.textContent = 'PIN работает только по защищённому адресу (https).'; return; }
+  if (lockMode === 'enter') {
+    if (Date.now() < blockedUntil) { err.textContent = 'Слишком много попыток. Подождите ' + Math.ceil((blockedUntil - Date.now()) / 1000) + ' с.'; return; }
+    if (await pinCheck(pin)) { fails = 0; hideLock(); render(); }
+    else { fails++; $('#lock-pin').value = ''; if (fails >= 5) { fails = 0; blockedUntil = Date.now() + 30000; err.textContent = 'Неверно. Подождите 30 секунд.'; } else err.textContent = 'Неверный PIN-код.'; }
+  } else if (lockMode === 'create') {
+    lockFirst = pin; lockMode = 'confirm'; $('#lock-title').textContent = 'Повторите PIN-код'; $('#lock-pin').value = ''; err.textContent = '';
+  } else {
+    if (pin !== lockFirst) { const fs = lockFromSettings; showLock('create', fs); $('#lock-err').textContent = 'PIN не совпал. Начнём заново.'; return; }
+    await pinSave(pin); try { localStorage.removeItem(PIN_SKIP); } catch (x) {}
+    hideLock(); toast('PIN-код задан'); fillSettings(); render();
+  }
+});
+$('#lock-skip').addEventListener('click', () => { if (!lockFromSettings) { try { localStorage.setItem(PIN_SKIP, '1'); } catch (e) {} } hideLock(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (pinGet() && hiddenAt && Date.now() - hiddenAt > 120000 && $('#lock').hidden) showLock('enter');
+});
+
 /* ---------- окна ---------- */
 const ov = $('#ov'), sheet = $('#sheet-body');
 function openSheet(html, mount) { sheet.innerHTML = html; ov.hidden = false; document.body.style.overflow = 'hidden'; if (mount) mount(); const a = sheet.querySelector('[data-af]'); if (a) a.focus(); }
@@ -340,12 +409,17 @@ function openIntake(existing, hints) {
     '<label><span class="l">IMEI</span><input id="f-imei" class="mono" inputmode="numeric" autocomplete="off" value="' + esc(v.imei) + '"></label><p id="f-hint" class="hint"></p>' +
     '<div class="two"><label><span class="l">Поставщик</span><input id="f-sup" list="dl-sup" value="' + esc(v.supplier || '') + '"></label><label><span class="l">Закупка, сом</span><input id="f-cost" inputmode="numeric" value="' + esc(v.cost) + '"></label></div>' +
     '<label><span class="l">Заметка</span><input id="f-note" value="' + esc(v.note || '') + '"></label>' +
+    '<div class="photobox"><label class="btn ghost small" for="f-photo">Сфотографировать телефон с паспортом</label><input id="f-photo" type="file" accept="image/*" capture="environment" multiple hidden><span id="f-photo-n" class="sub"></span><p class="hint">Фото хранится только на этом устройстве и не отправляется в интернет.</p></div>' +
     '<p id="f-err" class="err" role="alert"></p>' +
     '<div class="actions"><button class="btn" type="submit">Сохранить</button>' + (existing ? '' : '<button class="btn ghost" type="button" id="f-next">Сохранить и сканировать дальше</button>') + '<button class="btn ghost" type="button" id="f-cancel">Отмена</button></div></form>',
   () => {
     const hint = () => { const h = imeiHint($('#f-imei').value, existing && existing.id, !!existing); const el = $('#f-hint'); el.className = h[0]; el.textContent = h[1]; };
     hint(); $('#f-imei').addEventListener('input', hint);
     $('#f-cancel').onclick = closeSheet;
+    let picked = [];
+    const photoInfo = async () => { const have = existing ? (await Photos.get(existing.id)).length : 0; $('#f-photo-n').textContent = (have ? 'Уже сохранено: ' + have + '. ' : '') + (picked.length ? 'Добавится: ' + picked.length : ''); };
+    photoInfo();
+    $('#f-photo').addEventListener('change', e => { picked = picked.concat(Array.from(e.target.files || [])); e.target.value = ''; photoInfo(); });
     const submit = next => {
       const model = $('#f-model').value.trim(), imei = $('#f-imei').value.replace(/\D/g, ''), cost = C.money($('#f-cost').value), err = $('#f-err');
       if (!model) { err.textContent = 'Укажите модель телефона.'; return; }
@@ -356,6 +430,7 @@ function openIntake(existing, hints) {
       const f = { model, color: $('#f-color').value.trim(), date: $('#f-date').value || C.today(), imei, supplier: $('#f-sup').value.trim(), cost, note: $('#f-note').value.trim() };
       const p = existing ? Object.assign({}, existing, f) : Object.assign({ id: Store.newId(), status: 'stock', createdAt: Date.now() }, f);
       Store.put(p); closeSheet(); toast(existing ? 'Сохранено' : 'Приход оформлен: ' + p.model);
+      if (picked.length) Photos.add(p.id, picked).then(n => toast('Фото сохранено на этом устройстве: ' + n), () => toast('Фото не удалось сохранить. Повторите из карточки телефона.'));
       if (!existing) { $('#q-imei').value = ''; scanState = null; }
       if (next) { setView('scan'); openCamera(); }
       else if (!existing && view === 'scan') { scanState = { q: p.imei, matches: [p], hints: {}, warn: '' }; render(); }
@@ -378,14 +453,15 @@ function openSell(id) {
     '<div class="two"><label><span class="l">Цена продажи, сом</span><input id="s-price" inputmode="numeric" data-af></label><label><span class="l">Дата</span><input id="s-date" type="date" value="' + C.today() + '"></label></div>' +
     '<div class="actions" style="align-items:center"><button class="btn ghost small" type="button" id="s-sug">Подставить ' + C.fmt(sug) + '</button><span class="sub">' + (mi.n ? 'средняя наценка по модели ' + Math.round(mi.m * 100) + '% (' + mi.n + ' прод.)' : 'ориентир: наценка 12%, продаж этой модели ещё нет') + '</span></div>' +
     '<div class="two"><label><span class="l">Покупатель</span><input id="s-buyer"></label><label><span class="l">Телефон покупателя</span><input id="s-contact" inputmode="tel"></label></div>' +
-    '<label><span class="l">Оплата</span><select id="s-pay"><option value="cash">Наличные</option><option value="bank">Перевод / банк</option><option value="inst">Рассрочка</option></select></label>' +
+    '<label><span class="l">Оплата</span><select id="s-pay"><option value="cash">Наличные</option><option value="bank">Перевод / банк</option><option value="inst">Рассрочка</option><option value="wait">Ждём перевод (через ИП)</option></select></label>' +
+    '<div id="wait-box" class="two" hidden><label><span class="l">Через кого (ИП)</span><input id="s-via" placeholder="Имя ИП"></label><label><span class="l">Ждём, дней</span><input id="s-days" inputmode="numeric" value="3"></label></div>' +
     '<div id="inst-box" class="two" hidden><label><span class="l">Первый взнос, сом</span><input id="s-first" inputmode="numeric" value="0"></label><label><span class="l">Месяцев</span><input id="s-months" inputmode="numeric" value="3"></label><p id="s-plan" class="hint" style="grid-column:1/-1"></p></div>' +
     '<p id="s-profit" class="hint"></p><p id="f-err" class="err" role="alert"></p>' +
     '<div class="actions"><button class="btn" type="submit">Оформить продажу</button><button class="btn ghost" type="button" id="f-cancel">Отмена</button></div></form>',
   () => {
     const calc = () => {
       const price = C.money($('#s-price').value), pay = $('#s-pay').value;
-      $('#inst-box').hidden = pay !== 'inst';
+      $('#inst-box').hidden = pay !== 'inst'; $('#wait-box').hidden = pay !== 'wait';
       const pe = $('#s-profit');
       if (isNaN(price)) { pe.className = 'hint'; pe.textContent = 'Введите цену продажи.'; }
       else { const pr = price - p.cost; pe.className = 'hint ' + (pr >= 0 ? 'ok' : 'bad'); pe.textContent = 'Прибыль ' + (pr < 0 ? '−' : '') + C.fmt(Math.abs(pr)) + (p.cost ? ' (' + Math.round(pr / p.cost * 100) + '% к закупке)' : ''); }
@@ -395,7 +471,7 @@ function openSell(id) {
         else el.textContent = 'Проверьте взнос и число месяцев.';
       }
     };
-    ['#s-price', '#s-pay', '#s-first', '#s-months', '#s-date'].forEach(s => $(s).addEventListener('input', calc)); calc();
+    ['#s-price', '#s-pay', '#s-first', '#s-months', '#s-date', '#s-days'].forEach(s => $(s).addEventListener('input', calc)); calc();
     $('#s-sug').onclick = () => { $('#s-price').value = sug; calc(); };
     $('#f-cancel').onclick = closeSheet;
     $('#f-sell').addEventListener('submit', e => {
@@ -411,6 +487,12 @@ function openSell(id) {
         sale.first = first; sale.months = mo; sale.payments = [];
         for (let i = 1; i <= mo; i++) sale.payments.push({ d: C.addMonths(date, i), a: i === mo ? rest - base * (mo - 1) : base, paid: false });
       }
+      if (pay === 'wait') {
+        const days = parseInt($('#s-days').value, 10), via = $('#s-via').value.trim();
+        if (!via) { err.textContent = 'Укажите, через кого оформлена сделка (ИП).'; return; }
+        if (!(days >= 0 && days <= 60)) { err.textContent = 'Укажите, сколько дней ждать перевод (0–60).'; return; }
+        sale.via = via; sale.payments = [{ d: C.addDays(date, days), a: price, paid: false }];
+      }
       Store.put(Object.assign({}, p, { status: 'sold', sale }));
       closeSheet(); toast('Продано: ' + p.model); scanState = null; $('#q-imei').value = ''; render();
     });
@@ -424,17 +506,22 @@ function openDetail(id) {
   if (s) {
     const sl = p.sale, pr = C.profitOf(p);
     d += '<dt>Продан</dt><dd>' + C.dmy(sl.date) + ' · ' + (PAY[sl.pay] || '') + '</dd><dt>Цена</dt><dd class="num">' + C.fmt(sl.price) + '</dd><dt>Прибыль</dt><dd class="num ' + (pr < 0 ? 'bad' : '') + '">' + (pr < 0 ? '−' : '') + C.fmt(Math.abs(pr)) + '</dd>' +
-      (sl.buyer ? '<dt>Покупатель</dt><dd>' + esc(sl.buyer) + (sl.contact ? ' · ' + esc(sl.contact) : '') + '</dd>' : '') + (sl.by ? '<dt>Продавец</dt><dd>' + esc(sl.by) + '</dd>' : '') + (sl.pay === 'inst' ? '<dt>Остаток долга</dt><dd class="num">' + C.fmt(C.remaining(p)) + '</dd>' : '');
+      (sl.buyer ? '<dt>Покупатель</dt><dd>' + esc(sl.buyer) + (sl.contact ? ' · ' + esc(sl.contact) : '') + '</dd>' : '') + (sl.by ? '<dt>Продавец</dt><dd>' + esc(sl.by) + '</dd>' : '') + (sl.via ? '<dt>Через</dt><dd>' + esc(sl.via) + '</dd>' : '') + (owed(p) ? '<dt>Нам должны</dt><dd class="num">' + C.fmt(C.remaining(p)) + '</dd>' : '');
   }
-  d += '</dl>';
+  d += '</dl><div id="d-photos"></div>';
   openSheet('<h2 class="title" id="sheet-title">' + esc(p.model) + ' <span class="pill' + (s ? ' sold' : '') + '">' + (s ? 'продан' : 'на складе') + '</span></h2>' + d +
     '<div class="actions">' + (s ? '<button class="btn ghost" type="button" id="d-return">Вернуть на склад</button>' : '<button class="btn" type="button" id="d-sell">Продать</button>') +
     '<button class="btn ghost" type="button" id="d-edit">Изменить</button><button class="btn danger" type="button" id="d-del">Удалить</button><button class="btn ghost" type="button" id="d-close">Закрыть</button></div>',
   () => {
+    Photos.get(p.id).then(list => {
+      const el = $('#d-photos'); if (!el) return;
+      el.innerHTML = '<p class="sub" style="margin:10px 0 6px">Фото (хранятся только на этом устройстве)</p>' + (list.length ? '' : '<p class="hint">Фото на этом устройстве нет.</p>');
+      list.forEach(b => { const im = document.createElement('img'); im.src = URL.createObjectURL(b); im.alt = 'Фото'; im.className = 'ph'; el.appendChild(im); });
+    });
     $('#d-close').onclick = closeSheet; $('#d-edit').onclick = () => openIntake(p);
     const sb = $('#d-sell'); if (sb) sb.onclick = () => openSell(p.id);
     const rb = $('#d-return'); if (rb) twoStep(rb, 'Точно вернуть?', () => { const np = Object.assign({}, p, { status: 'stock' }); delete np.sale; Store.put(np); closeSheet(); toast('Телефон снова на складе'); });
-    twoStep($('#d-del'), 'Точно удалить?', () => { Store.remove(p.id); closeSheet(); toast('Удалено'); scanState = null; render(); });
+    twoStep($('#d-del'), 'Точно удалить?', () => { Store.remove(p.id); Photos.del(p.id); closeSheet(); toast('Удалено'); scanState = null; render(); });
   });
 }
 
@@ -514,7 +601,7 @@ function exportCsv() {
   const headRow = ['Дата прихода', 'Телефон', 'Цвет', 'IMEI', 'Поставщик', 'Закупка', 'Статус', 'Дата продажи', 'Цена продажи', 'Покупатель', 'Оплата', 'Продавец', 'Прибыль', 'Остаток долга'];
   const rows = phones().slice().sort((a, b) => a.date < b.date ? -1 : 1).map(p => {
     const s = C.isSold(p) ? p.sale : null;
-    return [C.dmy(p.date), p.model, p.color, '="' + p.imei + '"', p.supplier, p.cost, s ? 'продан' : 'на складе', s ? C.dmy(s.date) : '', s ? s.price : '', s ? s.buyer : '', s ? PAY[s.pay] : '', s ? s.by : '', s ? C.profitOf(p) : '', s && s.pay === 'inst' ? C.remaining(p) : ''].map(q).join(';');
+    return [C.dmy(p.date), p.model, p.color, '="' + p.imei + '"', p.supplier, p.cost, s ? 'продан' : 'на складе', s ? C.dmy(s.date) : '', s ? s.price : '', s ? s.buyer : '', s ? PAY[s.pay] : '', s ? s.by : '', s ? C.profitOf(p) : '', s && (s.pay === 'inst' || s.pay === 'wait') ? C.remaining(p) : ''].map(q).join(';');
   });
   const blob = new Blob(['﻿' + [headRow.map(q).join(';')].concat(rows).join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
@@ -553,6 +640,13 @@ $('#btn-export').addEventListener('click', exportCsv);
 
 $('#set-seller').addEventListener('change', e => Store.setSeller(e.target.value.trim()));
 $('#set-theme').addEventListener('change', e => { try { localStorage.setItem('imeisklad.theme', e.target.value); } catch (x) {} applyTheme(e.target.value); });
+$('#set-mode').addEventListener('change', e => {
+  try { localStorage.setItem('imeisklad.mode', e.target.value); } catch (x) {}
+  applyMode(e.target.value);
+  if (e.target.value === 'simple' && (view === 'home' || view === 'stats')) setView('scan'); else render();
+});
+$('#pin-set').addEventListener('click', () => showLock('create', true));
+twoStep($('#pin-off'), 'Точно убрать PIN?', () => { try { localStorage.removeItem(PIN_K); localStorage.setItem(PIN_SKIP, '1'); } catch (e) {} fillSettings(); toast('PIN-код убран'); });
 $('#set-gen').addEventListener('click', () => { $('#set-shop').value = randomCode(); });
 $('#set-save').addEventListener('click', () => {
   const url = $('#set-url').value.trim().replace(/\/+$/, ''), key = $('#set-key').value.trim(), shop = $('#set-shop').value.trim();
@@ -608,7 +702,10 @@ window.addEventListener('pagehide', () => Cam.stop());
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent), standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   const ih = $('#install-hint');
   if (ih) ih.textContent = standalone ? 'Приложение уже установлено.' : ios ? 'iPhone: откройте эту страницу в Safari, нажмите «Поделиться», затем «На экран Домой».' : 'Компьютер или Android: нажмите «Установить приложение» ниже (или значок установки в адресной строке Chrome/Edge).';
-  render();
+  applyMode(getMode());
+  setView(getMode() === 'simple' ? 'scan' : 'home');
+  let skipped = false; try { skipped = localStorage.getItem(PIN_SKIP) === '1'; } catch (e) {}
+  if (pinGet()) showLock('enter'); else if (!skipped) showLock('create');
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
 })();

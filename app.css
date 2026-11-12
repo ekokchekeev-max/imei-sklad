@@ -236,3 +236,24 @@ tr[aria-selected="true"] td{background:var(--soft)}
 }
 .brandmark span{white-space:nowrap}
 @media (max-width:480px){.top .chip{font-size:12px;padding:6px 10px;max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+
+/* ---- простой режим, фото ---- */
+body[data-mode="simple"] .tab.t-home,body[data-mode="simple"] .tab.t-stats{display:none}
+@media (max-width:899px){
+  body[data-mode="simple"] .nav{grid-template-columns:repeat(4,1fr)}
+  body[data-mode="simple"] .tab.t-inst{display:flex}
+}
+.photobox{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.photobox .hint{flex-basis:100%;margin:0}
+.ph{display:block;width:100%;max-width:100%;border-radius:12px;margin:6px 0;border:1px solid var(--line)}
+
+/* ---- PIN ---- */
+.lock{position:fixed;inset:0;z-index:200;background:var(--bg);display:grid;place-items:center;padding:24px}
+.lock[hidden]{display:none}
+.lockbox{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;text-align:center;align-items:stretch}
+.lockbox h1{font-size:22px;margin:0}
+.lockbox .sub{margin:0}
+.lockicon{width:56px;height:56px;border-radius:16px;background:var(--lime);display:grid;place-items:center;margin:0 auto}
+.lockicon svg{width:30px;height:30px;stroke:var(--lime-ink);fill:none;stroke-width:2;stroke-linecap:round}
+.pin{text-align:center;font-size:28px;letter-spacing:.4em;padding:12px}
+body.locked .nav,body.locked .main{visibility:hidden}

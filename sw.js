@@ -1,5 +1,5 @@
 /* Сервис-воркер: приложение открывается без интернета. */
-const V = 'v2';
+const V = 'v4';
 const SHELL = ['./', 'index.html', 'app.css', 'core.js', 'store.js', 'camera.js', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 const CDN = /^https:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|tessdata\.projectnaptha\.com)\//;
 

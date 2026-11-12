@@ -16,6 +16,17 @@
 </head>
 <body>
 
+<div id="lock" class="lock" hidden role="dialog" aria-modal="true" aria-labelledby="lock-title">
+  <form id="lock-form" class="lockbox" autocomplete="off">
+    <div class="lockicon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14M9 5v14M13 5v14M17 5v14M20 5v14"/></svg></div>
+    <h1 id="lock-title">Введите PIN-код</h1>
+    <p id="lock-sub" class="sub"></p>
+    <input id="lock-pin" class="mono pin" type="password" inputmode="numeric" autocomplete="off" maxlength="6" aria-label="PIN-код">
+    <p id="lock-err" class="err" role="alert"></p>
+    <button class="btn big" type="submit">Продолжить</button>
+    <button id="lock-skip" class="btn ghost" type="button" hidden>Пропустить</button>
+  </form>
+</div>
 <nav class="nav" role="tablist" aria-label="Разделы">
   <div class="brand"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14M9 5v14M13 5v14M17 5v14M20 5v14" stroke-width="1.6"/></svg></i>Имей Склад</div>
   <button class="tab t-home" role="tab" data-v="home" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V11M10 20V5M16 20v-7M21 20H3"/></svg>Сводка</button>
@@ -23,7 +34,7 @@
   <button class="tab t-scan" role="tab" data-v="scan" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>Сканер</button>
   <button class="tab t-sales" role="tab" data-v="sales" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4h8l9 9-8 8-9-9z"/><circle cx="7.5" cy="8.5" r="1"/></svg>Продажи</button>
   <button class="tab t-stats" role="tab" data-v="stats" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Аналитика</button>
-  <button class="tab t-inst only-desktop" role="tab" data-v="inst" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Рассрочки</button>
+  <button class="tab t-inst only-desktop" role="tab" data-v="inst" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Нам должны</button>
   <div class="spacer"></div>
   <button class="tab only-desktop" role="tab" data-v="settings" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>Настройки</button>
 </nav>
@@ -154,7 +165,13 @@
       <div class="card setcard">
         <h3>Этот телефон или компьютер</h3>
         <label><span class="sub">Имя продавца (попадёт в продажи)</span><input id="set-seller" placeholder="Например, Нурсултан"></label>
+        <label><span class="sub">Режим</span><select id="set-mode"><option value="simple">Простой: склад, сканер, продажи, долги</option><option value="full">Полный: добавить сводку и аналитику</option></select></label>
         <label><span class="sub">Оформление</span><select id="set-theme"><option value="auto">Как в системе</option><option value="light">Светлое</option><option value="dark">Тёмное</option></select></label>
+      </div>
+      <div class="card setcard">
+        <h3>PIN-код</h3>
+        <p id="pin-status" class="hint"></p>
+        <div class="actions"><button id="pin-set" class="btn small" type="button">Задать PIN</button><button id="pin-off" class="btn ghost small" type="button" hidden>Убрать PIN</button></div>
       </div>
       <div class="card setcard">
         <h3>Синхронизация между устройствами</h3>
